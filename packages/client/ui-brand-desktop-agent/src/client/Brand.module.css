@@ -1,0 +1,39 @@
+.mark {
+  position: relative;
+  display: inline-grid;
+  width: var(--desktop-agent-mark-size);
+  height: var(--desktop-agent-mark-size);
+  flex: 0 0 var(--desktop-agent-mark-size);
+  place-items: center;
+  overflow: hidden;
+  border-radius: var(--dsw-radius-sm);
+  background: var(--dsw-alias-state-business-primary);
+  color: var(--dsw-alias-label-primary-inverted);
+  vertical-align: middle;
+}
+
+.mark::after {
+  position: absolute;
+  inset: 0 0 50% 50%;
+  background: var(--dsw-alias-label-primary);
+  content: "";
+  opacity: 0.12;
+}
+
+.monogram {
+  position: relative;
+  z-index: 1;
+  font-size: calc(var(--desktop-agent-mark-size) * 0.33);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.name {
+  color: var(--dsw-alias-label-primary);
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 20px;
+  letter-spacing: 0;
+  white-space: nowrap;
+}

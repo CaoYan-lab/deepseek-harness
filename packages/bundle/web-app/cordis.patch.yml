@@ -332,9 +332,12 @@
     - id: ui-chat
       name: '@deepseek-ai/dsh-client-ui-chat'
 
-    # Official occupants for the generic sidebar and conversation brand slots.
+    # Profile-gated occupants for the generic browser-brand slots.
     - id: ui-brand-official
       name: '@deepseek-ai/dsh-client-ui-brand-official'
+
+    - id: ui-brand-desktop-agent
+      name: '@deepseek-ai/dsh-client-ui-brand-desktop-agent'
 
     - id: ui-attachment
       name: '@deepseek-ai/dsh-client-ui-attachment'

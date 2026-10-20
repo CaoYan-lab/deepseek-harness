@@ -22,6 +22,12 @@ const OFFICIAL_CLIENT_BUILD_ENVIRONMENT = {
   DSH_CLIENT_TITLE: 'DeepSeek Harness',
 } as const
 
+/** Public client environment required by Desktop Agent prototype artifacts. */
+const PROTOTYPE_CLIENT_BUILD_ENVIRONMENT = {
+  DSH_CLIENT_BUILD_PROFILE: 'prototype',
+  DSH_CLIENT_TITLE: 'Desktop Agent',
+} as const
+
 /** Public variable carrying the source commit embedded in client artifacts. */
 const CLIENT_COMMIT_HASH_VARIABLE = 'DSH_CLIENT_COMMIT_HASH'
 
@@ -34,6 +40,8 @@ export const CLIENT_BUILD_RECORD_PATH = '.dsh-build/client-build-environment.jso
 const CLIENT_BUILD_RECORD_FORMAT = 1
 const CLIENT_ARTIFACT_PATTERNS = [
   'apps/web/dist/**/*',
+  'apps/desktop/lib/main.js',
+  'apps/desktop/lib/welcome/**/*',
   'packages/*/*/lib/client.js',
   'packages/*/*/lib/client.js.map',
   'packages/*/*/lib/client.*.js',
@@ -149,7 +157,7 @@ export function officialClientBuildEnvironment(
   }
 }
 
-/** Digest of every client artifact produced by the complete root build. */
+/** Digest of every public-client-value-dependent artifact produced by the complete root build. */
 interface ClientArtifactDigest {
   /** Number of files covered by the digest. */
   readonly fileCount: number
@@ -157,7 +165,7 @@ interface ClientArtifactDigest {
   readonly sha256: string
 }
 
-/** Durable description of one complete root client build. */
+/** Durable description of one complete build's public client environment. */
 export interface ClientBuildRecord {
   /** Record schema version. */
   readonly formatVersion: number
@@ -189,22 +197,22 @@ export function resolveClientBuildEnvironment(
   profile: string | undefined = environment[CLIENT_BUILD_PROFILE_SELECTOR],
 ): ClientBuildEnvironment {
   if (profile === undefined) return clientBuildEnvironment(environment)
-  if (profile === 'official') {
+  if (profile === 'official' || profile === 'prototype') {
     const commitHash = environment[CLIENT_COMMIT_HASH_VARIABLE]
     const version = environment[CLIENT_VERSION_VARIABLE]
     if (commitHash === undefined) {
-      throw new Error(`${CLIENT_COMMIT_HASH_VARIABLE} is required for the official client build profile`)
+      throw new Error(`${CLIENT_COMMIT_HASH_VARIABLE} is required for the ${profile} client build profile`)
     }
     if (version === undefined) {
-      throw new Error(`${CLIENT_VERSION_VARIABLE} is required for the official client build profile`)
+      throw new Error(`${CLIENT_VERSION_VARIABLE} is required for the ${profile} client build profile`)
     }
     return {
       DSH_CLIENT_COMMIT_HASH: commitHash,
       DSH_CLIENT_VERSION: version,
-      ...OFFICIAL_CLIENT_BUILD_ENVIRONMENT,
+      ...(profile === 'official' ? OFFICIAL_CLIENT_BUILD_ENVIRONMENT : PROTOTYPE_CLIENT_BUILD_ENVIRONMENT),
     }
   }
-  throw new Error(`unknown client build profile ${JSON.stringify(profile)}; expected "official"`)
+  throw new Error(`unknown client build profile ${JSON.stringify(profile)}; expected "official" or "prototype"`)
 }
 
 /**

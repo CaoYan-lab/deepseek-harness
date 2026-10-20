@@ -1,0 +1,22 @@
+# Bilingual-pair consistency record for 2026-10-19-desktop-agent-prototype-brand.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-10-19-desktop-agent-prototype-brand.md
+/agent-note-profile-gated-desktop-agent-prototype-brand:
+  en: fa9cb582ebb4dca4
+  zh: 02d58f1e9d122563
+/agent-note-profile-gated-desktop-agent-prototype-brand/problem:
+  en: 2e6d7d3de728b23a
+  zh: d6073a625d2f085b
+/agent-note-profile-gated-desktop-agent-prototype-brand/decision:
+  en: eb797fd0edc9394b
+  zh: 420e771dc2bc5ecc
+/agent-note-profile-gated-desktop-agent-prototype-brand/verification:
+  en: 4033b07a6367020e
+  zh: 35b38447a66161a4
+/agent-note-profile-gated-desktop-agent-prototype-brand/alternatives-considered:
+  en: 474c21b7b1edd76d
+  zh: 03dd4f2c55fc295f
+/agent-note-profile-gated-desktop-agent-prototype-brand/consequences:
+  en: 224686c7243b30d3
+  zh: 6e4c18740f7266be

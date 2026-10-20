@@ -11,6 +11,12 @@ import { developmentRuntimeDirectory, resolveDesktopBuildTarget } from './deskto
 import { prepareDevelopmentProject } from './development-project.ts'
 import { prepareDevelopmentApp } from './development-app.ts'
 import { preparePrimaryRuntime } from './prepare-primary-runtime.ts'
+import {
+  CLIENT_BUILD_PROFILE_SELECTOR,
+  readClientBuildRecord,
+  repositoryClientBuildEnvironment,
+  resolveClientBuildEnvironment,
+} from '../../../scripts/client-build-environment.ts'
 
 const APP_ROOT = resolve(import.meta.dirname, '..')
 const REPOSITORY_ROOT = resolve(APP_ROOT, '..', '..')
@@ -48,15 +54,15 @@ async function run(command: string, args: readonly string[], cwd: string, enviro
   })
 }
 
-async function runPackageScript(script: string, cwd: string): Promise<void> {
+async function runPackageScript(script: string, cwd: string, environment: NodeJS.ProcessEnv): Promise<void> {
   const packageManager = process.env.npm_execpath
   if (packageManager === undefined || packageManager === '') {
     throw new Error('desktop development: invoke this launcher through pnpm run dev:desktop or start:desktop')
   }
-  await run(process.execPath, [packageManager, 'run', script], cwd)
+  await run(process.execPath, [packageManager, 'run', script], cwd, environment)
 }
 
-async function launchElectron(): Promise<void> {
+async function launchElectron(environment: NodeJS.ProcessEnv): Promise<void> {
   const require = createRequire(import.meta.url)
   const electron: unknown = require('electron')
   if (typeof electron !== 'string') throw new Error('desktop development: electron executable is unavailable')
@@ -65,8 +71,8 @@ async function launchElectron(): Promise<void> {
   const hostPort = debugPort('DSH_DESKTOP_HOST_INSPECT_PORT', 9230)
   const home = resolve(process.env.DSH_HOME ?? join(DEVELOPMENT_ROOT, 'home'))
   const userData = resolve(process.env.DSH_DESKTOP_USER_DATA_DIR ?? join(DEVELOPMENT_ROOT, 'electron-user-data'))
-  const environment: NodeJS.ProcessEnv = {
-    ...process.env,
+  const launchEnvironment: NodeJS.ProcessEnv = {
+    ...environment,
     DSH_HOME: home,
     DSH_DESKTOP_PRIMARY_RUNTIME_DIR: process.env.DSH_DESKTOP_PRIMARY_RUNTIME_DIR ?? developmentRuntimeDirectory(),
     DSH_DESKTOP_HOST_INSPECT_PORT: String(hostPort),
@@ -78,8 +84,8 @@ async function launchElectron(): Promise<void> {
   console.log(`desktop development: inspectors main=${String(mainPort)}, renderer=${String(rendererPort)}, host=${String(hostPort)}`)
   if (process.platform === 'darwin') {
     const executable = prepareDevelopmentApp({ electron, appRoot: APP_ROOT, directory: DEVELOPMENT_ROOT, home, userData,
-      mainPort, rendererPort, hostPort, openDevtools: environment.DSH_DESKTOP_OPEN_DEVTOOLS! })
-    await run(executable, [], APP_ROOT, environment)
+      mainPort, rendererPort, hostPort, openDevtools: launchEnvironment.DSH_DESKTOP_OPEN_DEVTOOLS! })
+    await run(executable, [], APP_ROOT, launchEnvironment)
     return
   }
   await run(electron, [
@@ -87,14 +93,44 @@ async function launchElectron(): Promise<void> {
     `--remote-debugging-port=${String(rendererPort)}`,
     `--user-data-dir=${userData}`,
     APP_ROOT,
-  ], APP_ROOT, environment)
+  ], APP_ROOT, launchEnvironment)
+}
+
+/** Command-line options accepted by the Desktop development launcher. */
+export interface DesktopDevelopmentArguments {
+  readonly skipBuild: boolean
+  readonly profile: string | undefined
+}
+
+/**
+ * Parse launcher arguments.
+ * @param args - Arguments after the launcher script path.
+ * @returns Build and profile selection.
+ */
+export function parseDesktopDevelopmentArguments(args: readonly string[]): DesktopDevelopmentArguments {
+  const { values } = parseArgs({
+    args: [...args],
+    options: {
+      'skip-build': { type: 'boolean', default: false },
+      profile: { type: 'string' },
+    },
+  })
+  return { skipBuild: values['skip-build'], profile: values.profile }
 }
 
 async function main(): Promise<void> {
-  const { values } = parseArgs({ options: { 'skip-build': { type: 'boolean', default: false } } })
-  if (!values['skip-build']) {
-    await runPackageScript('build:artifacts', REPOSITORY_ROOT)
-    await runPackageScript('build', APP_ROOT)
+  const { skipBuild, profile } = parseDesktopDevelopmentArguments(process.argv.slice(2))
+  const selected = profile === undefined
+    ? undefined
+    : resolveClientBuildEnvironment(repositoryClientBuildEnvironment(REPOSITORY_ROOT, process.env), profile)
+  const environment = profile === undefined
+    ? process.env
+    : { ...process.env, [CLIENT_BUILD_PROFILE_SELECTOR]: profile }
+  if (!skipBuild) {
+    await runPackageScript('build:artifacts', REPOSITORY_ROOT, environment)
+    await runPackageScript('build', APP_ROOT, environment)
+  } else if (selected !== undefined) {
+    readClientBuildRecord(REPOSITORY_ROOT, selected)
   }
   for (const path of [
     join(APP_ROOT, 'lib', 'main.js'),
@@ -121,10 +157,12 @@ async function main(): Promise<void> {
     target: resolveDesktopBuildTarget(),
   })
   await preparePrimaryRuntime()
-  await launchElectron()
+  await launchElectron(environment)
 }
 
-await main().catch((error: unknown) => {
-  console.error(error instanceof Error ? error.message : error)
-  process.exitCode = 1
-})
+if (import.meta.main) {
+  await main().catch((error: unknown) => {
+    console.error(error instanceof Error ? error.message : error)
+    process.exitCode = 1
+  })
+}

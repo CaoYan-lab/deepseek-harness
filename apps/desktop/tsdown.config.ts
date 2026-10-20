@@ -3,7 +3,11 @@ import { build } from 'vite'
 import { fileURLToPath } from 'node:url'
 import { readFileSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
-import { repositoryClientBuildEnvironment, resolveClientBuildEnvironment } from '../../scripts/client-build-environment.ts'
+import {
+  clientBuildEnvironmentDefines,
+  repositoryClientBuildEnvironment,
+  resolveClientBuildEnvironment,
+} from '../../scripts/client-build-environment.ts'
 import { packagedImportsPlugin } from './scripts/desktop-bundle-imports.mjs'
 
 // This config runs after the workspace tsdown pass, not inside it: the main bundle inlines
@@ -29,8 +33,9 @@ const clientEnvironment = resolveClientBuildEnvironment(process.env.DSH_CLIENT_V
 const clientVersion = clientEnvironment.DSH_CLIENT_VERSION
 if (clientVersion === undefined) throw new Error('desktop build: the client environment carries no DSH_CLIENT_VERSION')
 
-/** Inline the one public build value the Node entry reads; every other variable stays a runtime lookup. */
-const clientVersionDefine = { 'process.env.DSH_CLIENT_VERSION': JSON.stringify(clientVersion) }
+/** Inline public build values while keeping unrelated Desktop environment reads at runtime. */
+const clientBuildDefines = clientBuildEnvironmentDefines(clientEnvironment)
+delete clientBuildDefines['process.env']
 
 export default defineConfig([
   {
@@ -49,7 +54,7 @@ export default defineConfig([
   {
     entry: ['lib/types/main.js'],
     plugins: [packagedImportsPlugin(mainProcessImports)],
-    define: clientVersionDefine,
+    define: clientBuildDefines,
     onSuccess: async () => {
       await build({
         configFile: false,
@@ -67,7 +72,10 @@ export default defineConfig([
         }],
         root: fileURLToPath(new URL('.', import.meta.url)),
         esbuild: { jsx: 'automatic' },
-        define: { 'process.env.NODE_ENV': JSON.stringify('production') },
+        define: {
+          ...clientBuildEnvironmentDefines(clientEnvironment),
+          'process.env.NODE_ENV': JSON.stringify('production'),
+        },
         build: {
           outDir: 'lib/welcome',
           emptyOutDir: true,

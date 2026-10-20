@@ -50,6 +50,8 @@ function write(path: string, content: string): void {
 function buildFixture(environment: Record<string, string>): string {
   const fixtureRoot = mkdtempSync(join(tmpdir(), 'dsh-client-build-'))
   roots.push(fixtureRoot)
+  write(join(fixtureRoot, 'apps/desktop/lib/main.js'), 'export {}\n')
+  write(join(fixtureRoot, 'apps/desktop/lib/welcome/welcome.js'), 'window.desktopWelcome = true\n')
   write(join(fixtureRoot, 'apps/web/dist/index.html'), '<main></main>')
   write(join(fixtureRoot, 'packages/client/example/lib/client.js'), 'module.exports = {}\n')
   writeClientBuildRecord(fixtureRoot, environment)
@@ -95,7 +97,7 @@ describe('client build environment', () => {
     }).toThrow(/DSH_CLIENT_UNDECLARED/)
   })
 
-  it('inherits public values by default and isolates an explicit official profile', () => {
+  it('inherits public values by default and isolates explicit named profiles', () => {
     const parent = {
       PATH: '/bin',
       DSH_BUILD_CLIENT_PROFILE: 'official',
@@ -114,6 +116,12 @@ describe('client build environment', () => {
       DSH_CLIENT_BUILD_PROFILE: 'official',
       DSH_CLIENT_COMMIT_HASH: COMMIT_HASH.slice(0, 7),
       DSH_CLIENT_TITLE: 'DeepSeek Harness',
+      DSH_CLIENT_VERSION: '1.2.3',
+    })
+    expect(resolveClientBuildEnvironment(parent, 'prototype')).toEqual({
+      DSH_CLIENT_BUILD_PROFILE: 'prototype',
+      DSH_CLIENT_COMMIT_HASH: COMMIT_HASH.slice(0, 7),
+      DSH_CLIENT_TITLE: 'Desktop Agent',
       DSH_CLIENT_VERSION: '1.2.3',
     })
     expect(() => {
@@ -292,6 +300,10 @@ describe('client build environment', () => {
     expect(() => { readClientBuildRecord(dual) }).not.toThrow()
     write(join(dual, 'packages/client/example/lib/client.browser.js'), 'module.exports = { browser: true }\n')
     expect(() => { readClientBuildRecord(dual) }).toThrow(/artifacts differ/)
+
+    const desktop = buildFixture(officialEnvironment)
+    write(join(desktop, 'apps/desktop/lib/main.js'), 'export const product = "changed"\n')
+    expect(() => { readClientBuildRecord(desktop) }).toThrow(/artifacts differ/)
   })
 
   it('keeps public client values out of workflow-wide environments', () => {
